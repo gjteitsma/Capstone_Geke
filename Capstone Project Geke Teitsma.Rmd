@@ -1,0 +1,288 @@
+---
+title: "Capstone Project - minor Bioinformatics"
+author: "G.J. Teitsma"
+date: "16-4-2020"
+output: html_document
+---
+
+16/04/2020
+
+Introduction: 
+
+Exams in the week of 4th of May probably
+So more classes next week, thenholiday, then exams
+
+
+End project: 
+Just the project and a small report in the form of an article.
+
+
+25 hr / week. 
+8 ECs
+
+
+Individually
+
+week 1-3: Project selection, writing project proposal
+week 3-7: Following course manual, data analysis
+
+
+Some theory:
+
+Gene expression instead of gene variation like last term. 
+
+2-fold regulated (induction) --> twice as much mRNA/protein product
+<1 down-regulated
+
+
+NCBI gene expression omnibus (GEO) for the datasets
+Don't present the project proposol. 
+The manual has guidelines. You can what you like, not all or in the same order
+
+About the original article:
+Experimental setup, software used for RNA-seq,  visualizations presenting information on DEGs
+
+We want the map reads to genome, quantitate expression levels
+we will be working on hypothesis testing, exploratory statistics and classification
+
+
+
+GEO-database --> annotated data
+NCBI Sequence Read Archive SRA --> raw data
+
+in an image: at least 2 conditions (case/control) and 3 replicates per condition
+
+
+Project proposol deadline 4 May, 17.00
+
+Don't chose one of the newest, most dont have a citation yet. You need to pick one that have a published article
+
+
+
+
+
+23-04-2020 The found experiment - Project Proposal. 
+
+```{r Installing all needed packages}
+install.packages("dplyr")
+install.packages("rticles", type = "source")
+install.packages("ggplot2")
+install.packages("BiocManager")
+BiocManager::install("DESeq2")
+install.packages("pander")
+```
+
+
+```{r Loading the packages }
+library(ggplot2)
+library(dplyr)
+library(rticles)
+library(pander)
+
+```
+
+This experiment is based on a dataset belonging to a published article. This dataset and article are freely accessible through various databases. 
+For this particular experiment the NCBI Gene Expression Omnibus (GEO) is used to obtain the dataset.
+
+From all the series types of this GEO database, the series Expression profiling by high throughput sequencing.
+
+Since my personal interest lies with genetics, immunology and pathology, I have choosen to search for datasets that contain, among others, the word/phrase "onco" in the title. 
+This resulted in a dataset leading to an article called "The Non-Canonical poly(A) Polymerase FAM46C Acts as an Onco-Suppressor in Multiple Myeloma" from Seweryn Mroczek et al (PMID 28931820).
+This resulted in the following samples:
+| Cells  | Expressing WT (FAM46CWTGFP) | Expressing FAM46CD90A,D92AGFP) | # reps | RNA Selection |
+|--------|-----------------------------|--------------------------------|--------|---------------|
+| H929   | No                          | Yes                            | 3      | Poly-A        |
+| H929   | Yes                         | No                             | 3      | Poly-A        |
+| H929   | No                          | Yes                            | 4      | Total         |
+| H929   | Yes                         | No                             | 4      | Total         |
+| SKMM1  | No                          | Yes                            | 3      | Poly-A        |
+| SKMM1  | Yes                         | No                             | 3      | Poly-A        |
+| SKMM1  | No                          | Yes                            | 3      | Total         |
+| SKMM1  | Yes                         | No                             | 3      | Total         |
+
+There are two cell-lines, varying expression of genes and varying selections of RNA. 
+However, only the samples that had Total RNA selection show the proper pre-processed data wanted. 
+This is therefore the only data that will be loaded into R. The data has to show a CountsGene. 
+The file was unzipped (from the .gz) using Linux, with the command line gunzip *.gz. This way all the files with a .gz extension were unzipped. 
+
+```{r Loading the data into R}
+
+#Sample 13, 14, 15 and 16 show H929 cells, expressing FAM46CD90A and D92AGFP (catalitic mutant)
+sample13 <- read.table("./data_samples/data_samples_txt/GSM2218713_H929_mut5.countsGene.txt", sep = "\t")
+sample14 <- read.table("./data_samples/data_samples_txt/GSM2218714_H929_mut6.countsGene.txt", sep = "\t") 
+sample15<- read.table("./data_samples/data_samples_txt/GSM2218715_H929_mut7.countsGene.txt", sep = "\t")
+sample16<- read.table("./data_samples/data_samples_txt/GSM2218716_H929_mut8.countsGene.txt", sep = "\t")
+
+#Sample 17, 18, 19 and 20 show H929 cells, expressing FAM46CWTGFP (WT)
+sample17 <- read.table("./data_samples/data_samples_txt/GSM2218717_H929_wt5.countsGene.txt", sep = "\t")
+sample18 <- read.table("./data_samples/data_samples_txt/GSM2218718_H929_wt6.countsGene.txt", sep = "\t")
+sample19 <- read.table("./data_samples/data_samples_txt/GSM2218719_H929_wt7.countsGene.txt", sep = "\t")
+sample20 <- read.table("./data_samples/data_samples_txt/GSM2218719_H929_wt7.countsGene.txt", sep = "\t")
+
+#Sample 21, 22 and 23 show SKMM1 cells expressing FAM46CD90A and D92AGFP
+sample21 <- read.table("./data_samples/data_samples_txt/GSM2218721_SKMM1_FAMCmutant1.countsGene.txt", sep = "\t")
+sample22 <- read.table("./data_samples/data_samples_txt/GSM2218722_SKMM1_FAMCmutant2.countsGene.txt", sep = "\t")
+sample23 <- read.table("./data_samples/data_samples_txt/GSM2218723_SKMM1_FAMCmutant3.countsGene.txt", sep = "\t")
+
+#Sample 24, 25 and 16 show SKMM1 cells expressing FAM46CWTGFP (WT)
+sample24 <- read.table("./data_samples/data_samples_txt/GSM2218724_SKMM1_FAMCWT1.countsGene.txt", sep = "\t")
+sample25 <- read.table("./data_samples/data_samples_txt/GSM2218725_SKMM1_FAMCWT2.countsGene.txt", sep = "\t")
+sample26 <- read.table("./data_samples/data_samples_txt/GSM2218726_SKMM1_FAMCWT3.countsGene.txt", sep = "\t")
+```
+
+
+```{r Adding a proper header to the loaded data}
+names(sample13) <- c("Ensembl reference and version", "Count 13")
+names(sample14) <- c("Ensembl reference and version", "Count 14")
+names(sample15) <- c("Ensembl reference and version", "Count 15")
+names(sample16) <- c("Ensembl reference and version", "Count 16")
+names(sample17) <- c("Ensembl reference and version", "Count 17")
+names(sample18) <- c("Ensembl reference and version", "Count 18")
+names(sample19) <- c("Ensembl reference and version", "Count 19")
+names(sample20) <- c("Ensembl reference and version", "Count 20")
+names(sample21) <- c("Ensembl reference and version", "Count 21")
+names(sample22) <- c("Ensembl reference and version", "Count 22")
+names(sample23) <- c("Ensembl reference and version", "Count 23")
+names(sample24) <- c("Ensembl reference and version", "Count 24")
+names(sample25) <- c("Ensembl reference and version", "Count 25")
+names(sample26) <- c("Ensembl reference and version", "Count 26")
+
+```
+
+```{r}
+## String splitting in R
+## (the fixed = TRUE is required as the dot is a special character, see '?strsplit')
+strsplit("./data_samples/data_samples_txt/GSM2218713_H929_mut5.countsGene.txt", '.', fixed = TRUE)
+
+## Keeping the sample identifier
+strsplit("./data_samples/data_samples_txt/GSM2218713_H929_mut5.countsGene.txt", '.', fixed = TRUE)[[1]][1]
+
+
+```
+
+13/05/2020
+
+INFO
+APPENDIX A
+
+knit to HTML
+
+
+```{r}
+file.names <- list.files("./data_samples/data_samples_txt/")
+```
+
+```{r}
+## Call the system 'head' tool to 'peek' inside the file
+system(paste0("head ", "./data_samples/datasamples_txt/GSM22187", file.names[1]))
+```
+
+
+```{r}
+## String splitting in R
+## (the fixed = TRUE is required as the dot is a special character, see '?strsplit')
+strsplit("GSM2218713_H929_mut5.countsGene.txt", '.', fixed = TRUE)
+
+```
+
+```{r}
+## Keeping the sample identifier
+strsplit('GSM2218713_H929_mut5.countsGene.txt', '.', fixed = TRUE)[[1]][1]
+
+```
+
+```{r}
+## Function for reading in files
+read_sample <- function(file.name) {
+  ## Extract the sample name for naming the column
+  sample.name <- strsplit(file.name, ".", fixed = TRUE)[[1]][1]
+  ## Read the data, setting the 'transcript_id' as row.names (column 1)
+  sample <- read.table(file.name, header = TRUE, sep="\t", row.names = NULL)
+  ## Rename the count column
+  names(sample)[5] <- sample.name
+  ## Return a subset containing the 'transcript_id' and sample name columns
+  return(sample[c(1, 5)])
+}
+
+```
+
+
+```{r}
+## Read the FIRST sample
+dataset <- read_sample(file.names[1])
+
+## Read first sample group (6)
+for (file.name in file.names[2:6]) {
+  sample <- read_sample(file.name)
+  dataset <- merge(dataset, sample, by = 1)
+}
+
+pander(head(dataset))
+
+```
+
+
+```{r}
+test1 <- cbind(sample13, sample14[2], sample15[2], sample16[2], sample17[2], sample18[2])
+test1
+``` 
+
+
+```{r}
+
+``` 
+
+
+```{r}
+
+
+``` 
+
+
+
+
+
+
+
+```{r}
+
+
+```
+
+
+```{r}
+
+
+```
+
+
+```{r}
+
+
+```
+
+
+```{r}
+
+
+```
+
+
+```{r}
+
+
+```
+
+
+```{r}
+
+
+```
+
+
+
+
+
+
+
+
